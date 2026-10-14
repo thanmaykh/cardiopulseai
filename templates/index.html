@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CardioPulse AI - Heart Sound Diagnostic Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Background Animated Gradient Orbs -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="navbar">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>CardioPulse <span>AI</span></h1>
+                    <p>Acoustic Cardiac Diagnostic System</p>
+                </div>
+            </div>
+            <div class="nav-badges">
+                <span class="status-chip"><i class="fa-solid fa-shield-halved"></i> CRNN Model Active</span>
+                <span class="status-chip highlight"><i class="fa-solid fa-bolt"></i> 120-dim MFCC</span>
+            </div>
+        </header>
+
+        <!-- Main Grid Layout -->
+        <main class="dashboard-grid">
+            
+            <!-- Left Column: Audio Input & Control Panel -->
+            <section class="card input-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-microphone-lines"></i> Audio Input & Record Analysis</h2>
+                    <p>Upload a stethoscope sound recording (.wav format)</p>
+                </div>
+
+                <!-- Tab Selection: File Upload vs Live Mic vs ESP32 -->
+                <div class="input-tabs">
+                    <button class="tab-btn active" id="tab-file-mode"><i class="fa-solid fa-cloud-arrow-up"></i> Upload WAV</button>
+                    <button class="tab-btn" id="tab-mic-mode"><i class="fa-solid fa-microphone"></i> PC Mic</button>
+                    <button class="tab-btn" id="tab-esp32-mode"><i class="fa-solid fa-wifi"></i> ESP32 Wireless</button>
+                </div>
+
+                <!-- Mode 1: File Dropzone -->
+                <div id="file-mode-container">
+                    <div class="dropzone" id="dropzone">
+                        <input type="file" id="audio-file-input" accept=".wav,audio/wav" hidden>
+                        <div class="dropzone-content">
+                            <div class="upload-icon">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                            </div>
+                            <h3>Drag & Drop your WAV Audio File</h3>
+                            <p>or click to browse local files</p>
+                            <span class="file-spec">Supported: WAV (16kHz / 44.1kHz mono/stereo)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mode 2: Live Microphone Recording -->
+                <div id="mic-mode-container" class="hidden">
+                    <div class="mic-recorder-card">
+                        <div class="mic-visualizer-orb" id="mic-visualizer-orb">
+                            <i class="fa-solid fa-microphone-lines"></i>
+                        </div>
+                        <h3 id="mic-status-title">Live Stethoscope Microphone</h3>
+                        <p id="mic-status-desc">Connect electronic stethoscope or PC microphone</p>
+                        
+                        <div class="rec-timer hidden" id="rec-timer">00:05</div>
+
+                        <div class="mic-controls">
+                            <button class="btn-record" id="btn-start-record">
+                                <i class="fa-solid fa-circle-dot"></i> Start 5s Live Record
+                            </button>
+                            <button class="btn-stop hidden" id="btn-stop-record">
+                                <i class="fa-solid fa-square"></i> Stop Early
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mode 3: ESP32 Wireless Receiver -->
+                <div id="esp32-mode-container" class="hidden">
+                    <div class="esp32-card">
+                        <div class="esp32-icon-orb">
+                            <i class="fa-solid fa-microchip"></i>
+                        </div>
+                        <h3>ESP32 Stethoscope Receiver Active</h3>
+                        <p class="esp32-ip-endpoint">Listening on: <code>http://&lt;YOUR_PC_IP&gt;:5000/api/esp32/upload</code></p>
+                        <div class="esp32-status-badge">
+                            <span class="pulse-dot"></span> Waiting for ESP32 Wi-Fi Transmission...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected File Preview Bar -->
+                <div class="file-preview-bar hidden" id="file-preview-bar">
+                    <div class="file-info">
+                        <i class="fa-solid fa-file-audio"></i>
+                        <span id="selected-filename">sample_heart_sound.wav</span>
+                    </div>
+                    <button class="btn-clear" id="btn-clear-file" title="Remove File">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- Audio Player -->
+                <div class="audio-player-container hidden" id="audio-player-wrapper">
+                    <label><i class="fa-solid fa-volume-high"></i> Audio Playback Preview</label>
+                    <audio id="audio-player" controls></audio>
+                </div>
+
+                <!-- Sample Audio Quick Selector -->
+                <div class="sample-selector-section">
+                    <span class="sample-title"><i class="fa-solid fa-flask"></i> Or Quick-Test Demo Samples:</span>
+                    <div class="sample-buttons" id="sample-buttons">
+                        <button class="btn-sample" data-type="normal"><i class="fa-solid fa-circle-check"></i> Normal Rhythm</button>
+                        <button class="btn-sample abnormal" data-type="murmur"><i class="fa-solid fa-triangle-exclamation"></i> Systolic Murmur</button>
+                        <button class="btn-sample warning" data-type="artifact"><i class="fa-solid fa-sliders"></i> Audio Artifact</button>
+                    </div>
+                </div>
+
+                <!-- Denoising Filter Toggle Option -->
+                <div class="filter-toggle-container">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggle-denoise" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="filter-label"><i class="fa-solid fa-filter-circle-dollar"></i> Enable Acoustic Denoising (20-500Hz Bandpass + 50Hz Hum Notch)</span>
+                </div>
+
+                <!-- Action Button -->
+                <button class="btn-analyze" id="btn-analyze">
+                    <span class="btn-text"><i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Heart Sound AI</span>
+                    <span class="spinner hidden" id="analyze-spinner"></span>
+                </button>
+            </section>
+
+            <!-- Right Column: Results & Clinical Predictions -->
+            <section class="card results-card" id="results-card">
+                
+                <!-- Initial Empty State -->
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-icon">
+                        <i class="fa-solid fa-wave-square"></i>
+                    </div>
+                    <h3>No Analysis Generated Yet</h3>
+                    <p>Upload a heart sound recording or click a demo sample button to initiate AI acoustic evaluation.</p>
+                </div>
+
+                <!-- Analysis Content Container (Hidden initially) -->
+                <div class="analysis-results hidden" id="analysis-results">
+                    
+                    <!-- Prediction Banner -->
+                    <div class="prediction-banner" id="prediction-banner">
+                        <div class="pred-header">
+                            <span class="pred-badge" id="pred-badge">Healthy Heart</span>
+                            <span class="pred-conf" id="pred-conf">98.4% Confidence</span>
+                        </div>
+                        <h2 class="pred-title" id="pred-title">Normal Cardiac Rhythm</h2>
+                        <p class="pred-desc" id="pred-desc">Clear S1 and S2 heart beats detected with standard temporal interval consistency.</p>
+                    </div>
+
+                    <!-- Probability Bars -->
+                    <div class="prob-section">
+                        <h4><i class="fa-solid fa-chart-bar"></i> Multi-Class Probability Breakdown</h4>
+                        <div class="prob-list">
+                            
+                            <div class="prob-item">
+                                <div class="prob-label">
+                                    <span><i class="fa-solid fa-heart"></i> Normal Heart Sound</span>
+                                    <span class="prob-val" id="val-normal">0.0%</span>
+                                </div>
+                                <div class="prob-track">
+                                    <div class="prob-bar bar-normal" id="bar-normal" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="prob-item">
+                                <div class="prob-label">
+                                    <span><i class="fa-solid fa-stethoscope"></i> Murmur / Abnormal Beat</span>
+                                    <span class="prob-val" id="val-murmur">0.0%</span>
+                                </div>
+                                <div class="prob-track">
+                                    <div class="prob-bar bar-murmur" id="bar-murmur" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="prob-item">
+                                <div class="prob-label">
+                                    <span><i class="fa-solid fa-triangle-exclamation"></i> Recording Artifact</span>
+                                    <span class="prob-val" id="val-artifact">0.0%</span>
+                                </div>
+                                <div class="prob-track">
+                                    <div class="prob-bar bar-artifact" id="bar-artifact" style="width: 0%;"></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Visualizations (Waveform & Mel Spectrogram) -->
+                    <div class="visuals-section">
+                        <div class="visuals-header">
+                            <h4><i class="fa-solid fa-chart-line"></i> Acoustic Signal Visualizations</h4>
+                        </div>
+
+                        <div class="visual-card">
+                            <h5>Audio Signal Waveform</h5>
+                            <img id="img-waveform" src="" alt="Waveform Signal" class="visual-img">
+                        </div>
+
+                        <div class="visual-card">
+                            <h5>Mel-Frequency Spectrogram (0 - 8kHz)</h5>
+                            <img id="img-spectrogram" src="" alt="Mel Spectrogram" class="visual-img">
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>CardioPulse AI Stethoscope Diagnostic System &bull; Powered by Deep 1D-CNN + BiLSTM CRNN &bull; 120-dim MFCC</p>
+        </footer>
+    </div>
+
+    <script src="/static/script.js?v=2.2"></script>
+</body>
+</html>
