@@ -9,6 +9,8 @@ import matplotlib
 import traceback
 import wave
 matplotlib.use('Agg')
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 import matplotlib.pyplot as plt
 from flask import Flask, request, jsonify, render_template, send_from_directory
 import tensorflow as tf
@@ -102,8 +104,9 @@ CLASS_DESCRIPTIONS = {
 }
 
 def generate_spectrogram_base64(audio_data, sr=SAMPLE_RATE):
-    """Generates an optimized high-speed mel-spectrogram image as Base64 string."""
-    fig, ax = plt.subplots(figsize=(8, 2.5), facecolor='#0f172a')
+    """Generates an optimized, thread-safe mel-spectrogram image as Base64 string."""
+    fig = Figure(figsize=(8, 2.5), facecolor='#0f172a')
+    ax = fig.add_subplot(111)
     ax.set_facecolor('#0f172a')
     
     # Compute Mel Spectrogram with optimized 64 mel bins
@@ -113,7 +116,8 @@ def generate_spectrogram_base64(audio_data, sr=SAMPLE_RATE):
     img = librosa.display.specshow(S_dB, x_axis='time', y_axis='mel', sr=sr, fmax=4000, ax=ax, cmap='magma')
     cbar = fig.colorbar(img, ax=ax, format='%+2.0f dB')
     cbar.ax.yaxis.set_tick_params(color='#94a3b8')
-    plt.setp(cbar.ax.yaxis.get_ticklabels(), color='#94a3b8')
+    for label in cbar.ax.yaxis.get_ticklabels():
+        label.set_color('#94a3b8')
     
     ax.set_title('Acoustic Mel-Spectrogram Analysis', color='#f8fafc', fontsize=11, pad=8)
     ax.set_xlabel('Time (s)', color='#94a3b8', fontsize=9)
@@ -122,19 +126,18 @@ def generate_spectrogram_base64(audio_data, sr=SAMPLE_RATE):
     fig.tight_layout()
     
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=80, facecolor='#0f172a', edgecolor='none')
-    buf.seek(0)
-    base64_str = base64.b64encode(buf.read()).decode('utf-8')
-    plt.close(fig)
-    return base64_str
+    canvas = FigureCanvasAgg(fig)
+    canvas.print_png(buf)
+    return base64.b64encode(buf.getvalue()).decode('utf-8')
 
 def generate_waveform_base64(audio_data, sr=SAMPLE_RATE):
-    """Generates an audio amplitude waveform plot as Base64 string."""
-    fig, ax = plt.subplots(figsize=(8, 2.0), facecolor='#0f172a')
+    """Generates a thread-safe audio amplitude waveform plot as Base64 string."""
+    fig = Figure(figsize=(8, 2.0), facecolor='#0f172a')
+    ax = fig.add_subplot(111)
     ax.set_facecolor('#0f172a')
     
     # Subsample data if long for instant plotting
-    step = max(1, len(audio_data) // 2000)
+    step = max(1, len(audio_data) // 1000)
     y_sub = audio_data[::step]
     time_axis = np.linspace(0, len(audio_data) / sr, len(y_sub))
     
@@ -149,11 +152,9 @@ def generate_waveform_base64(audio_data, sr=SAMPLE_RATE):
     fig.tight_layout()
     
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=80, facecolor='#0f172a', edgecolor='none')
-    buf.seek(0)
-    base64_str = base64.b64encode(buf.read()).decode('utf-8')
-    plt.close(fig)
-    return base64_str
+    canvas = FigureCanvasAgg(fig)
+    canvas.print_png(buf)
+    return base64.b64encode(buf.getvalue()).decode('utf-8')
 
 @app.route('/')
 def index():
@@ -243,6 +244,12 @@ def load_audio_robustly(filepath):
         sr_file, data = wavfile.read(filepath)
         if data.ndim > 1:
             data = data.mean(axis=1)
+
+        # Pre-truncate to DURATION before resampling so we never waste CPU/RAM on long files
+        max_raw_samples = int(sr_file * DURATION)
+        if len(data) > max_raw_samples:
+            data = data[:max_raw_samples]
+
         if data.dtype == np.int16:
             y = data.astype(np.float32) / 32768.0
         elif data.dtype == np.int32:
