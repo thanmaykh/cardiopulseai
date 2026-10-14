@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+node_modules/
+physionet_datasets/
+heart_sounds_merged/
+cloudflared.exe
+*.bat
+*.sh
+.gitignore
+uploads/*
+!uploads/.gitkeep
