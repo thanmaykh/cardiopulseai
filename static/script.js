@@ -306,21 +306,30 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('denoise', isDenoise);
 
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000);
+
             const resp = await fetch('/api/predict', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
             const data = await resp.json();
 
             if (resp.ok && data.success) {
                 displayResults(data);
             } else {
-                alert('Analysis failed: ' + (data.error || 'Server HTTP status ' + resp.status));
+                alert('Analysis notice: ' + (data.error || 'Server status ' + resp.status));
             }
         } catch (err) {
             console.error('Prediction API Error:', err);
-            alert('Server connection error. Please make sure Flask backend is running.');
+            if (err.name === 'AbortError') {
+                alert('The analysis timed out. The cloud server may be initializing, please try again.');
+            } else {
+                alert('Connection notice: Cloud server is processing or waking up. Please retry in a few seconds.');
+            }
         } finally {
             btnAnalyze.disabled = false;
             analyzeSpinner.classList.add('hidden');
